@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>일일 건강 기록장</title>
+  <!-- FullCalendar CDN -->
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+  <style>
+    * { box-sizing: border-box; font-family: 'Pretendard', sans-serif; }
+    body { max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; }
+    h1 { text-align: center; color: #333; }
+    
+    /* 탭 메뉴 */
+    .tab-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab-btn { flex: 1; padding: 12px; font-size: 16px; font-weight: bold; border: none; background: #e9ecef; cursor: pointer; border-radius: 8px; }
+    .tab-btn.active { background: #4C6EF5; color: white; }
+    
+    /* 탭 콘텐츠 영역 */
+    .tab-content { display: none; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .tab-content.active { display: block; }
+
+    /* 폼 스타일 */
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #495057; }
+    .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 15px; }
+    .submit-btn { width: 100%; padding: 14px; background: #4C6EF5; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    .submit-btn:disabled { background: #adb5bd; }
+
+    /* 달력 커스텀 */
+    #calendar { max-width: 100%; margin: 0 auto; }
+    .fc-event { cursor: pointer; }
+
+    /* 모달 팝업 */
+    .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+    .modal-content { background: white; margin: 15% auto; padding: 24px; width: 90%; max-width: 450px; border-radius: 12px; }
+    .modal-content h3 { margin-top: 0; border-bottom: 2px solid #4C6EF5; padding-bottom: 10px; }
+    .modal-item { margin: 10px 0; font-size: 15px; }
+    .close-btn { width: 100%; padding: 10px; background: #6c757d; color: white; border: none; border-radius: 6px; margin-top: 15px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <h1>🏥 일일 건강 기록장</h1>
+
+  <!-- 탭 버튼 -->
+  <div class="tab-buttons">
+    <button class="tab-btn active" onclick="switchTab('register')">📝 데이터 입력</button>
+    <button class="tab-btn" onclick="switchTab('calendar-tab')">📅 달력 보기</button>
+  </div>
+
+  <!-- 1. 등록 폼 탭 -->
+  <div id="register" class="tab-content active">
+    <form id="healthForm">
+      <div class="form-group">
+        <label>날짜 및 시간</label>
+        <input type="datetime-local" id="datetime" required>
+      </div>
+      <div class="form-group">
+        <label>체온 (℃)</label>
+        <input type="number" step="0.1" id="temperature" placeholder="예: 36.5">
+      </div>
+      <div class="form-group">
+        <label>혈압 / 맥박</label>
+        <input type="text" id="bp" placeholder="예: 120/80 - 72">
+      </div>
+      <div class="form-group">
+        <label>식사량</label>
+        <input type="text" id="meal" placeholder="예: 아침 일반식 1공기, 점심 죽">
+      </div>
+      <div class="form-group">
+        <label>물 섭취량 (ml)</label>
+        <input type="number" id="water" placeholder="예: 1500">
+      </div>
+      <div class="form-group">
+        <label>소변 (횟수/상태)</label>
+        <input type="text" id="urine" placeholder="예: 5회 / 보통">
+      </div>
+      <div class="form-group">
+        <label>설사/구토 횟수</label>
+        <input type="text" id="vomit_diarrhea" placeholder="예: 구토 0회, 설사 1회">
+      </div>
+      <div class="form-group">
+        <label>기타 특이사항</label>
+        <textarea id="note" rows="3" placeholder="두통 살짝 있음"></textarea>
+      </div>
+      <button type="submit" id="saveBtn" class="submit-btn">기록 저장하기</button>
+    </form>
+  </div>
+
+  <!-- 2. 달력 탭 -->
+  <div id="calendar-tab" class="tab-content">
+    <div id="calendar"></div>
+  </div>
+
+  <!-- 상세 정보 모달 팝업 -->
+  <div id="detailModal" class="modal">
+    <div class="modal-content">
+      <h3 id="modalDate">상세 기록</h3>
+      <div id="modalBody"></div>
+      <button class="close-btn" onclick="closeModal()">닫기</button>
+    </div>
+  </div>
+
+  <script>
+    // ⚠️ [중요] 여기에 2단계에서 복사한 Google Apps Script 웹 앱 URL을 넣으세요!
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxfLyOaPvmXJ8YnvktBFFXvSHpe9W9W3QCWrsGMliYJCDDm94dn6mwhoYa5e0VlYBzljw/exec";
+
+    let calendarObj = null;
+
+    // 페이지 로드 시 현재 시간 기본 설정
+    document.addEventListener('DOMContentLoaded', () => {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById('datetime').value = now.toISOString().slice(0, 16);
+    });
+
+    // 탭 전환 로직
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      if (tabId === 'register') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('register').classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('calendar-tab').classList.add('active');
+        
+        // 달력 첫 렌더링
+        if (!calendarObj) {
+          initCalendar();
+        } else {
+          calendarObj.refetchEvents(); // 달력 데이터 새로고침
+        }
+      }
+    }
+
+    // 데이터 저장 (POST)
+    document.getElementById('healthForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const saveBtn = document.getElementById('saveBtn');
+      saveBtn.disabled = true;
+      saveBtn.innerText = '저장 중...';
+
+      const payload = {
+        datetime: document.getElementById('datetime').value,
+        temperature: document.getElementById('temperature').value,
+        bp: document.getElementById('bp').value,
+        meal: document.getElementById('meal').value,
+        water: document.getElementById('water').value,
+        urine: document.getElementById('urine').value,
+        vomit_diarrhea: document.getElementById('vomit_diarrhea').value,
+        note: document.getElementById('note').value
+      };
+
+      fetch(GAS_URL, {
+        method: 'POST',
+        mode: 'no-cors', // GAS 전송용 설정
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(() => {
+        alert('기록이 성공적으로 저장되었습니다!');
+        document.getElementById('healthForm').reset();
+        // 날짜 다시 설정
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('datetime').value = now.toISOString().slice(0, 16);
+      })
+      .catch(err => {
+        alert('저장 실패: ' + err);
+      })
+      .finally(() => {
+        saveBtn.disabled = false;
+        saveBtn.innerText = '기록 저장하기';
+      });
+    });
+
+    // FullCalendar 초기화 함수
+    function initCalendar() {
+      const calendarEl = document.getElementById('calendar');
+      calendarObj = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'ko',
+        headerToolbar: {
+          left: 'prev,next today',
+          center: 'title',
+          right: ''
+        },
+        events: function(fetchInfo, successCallback, failureCallback) {
+          fetch(GAS_URL)
+            .then(res => res.json())
+            .then(data => successCallback(data))
+            .catch(err => failureCallback(err));
+        },
+        eventClick: function(info) {
+          showDetail(info.event);
+        }
+      });
+      calendarObj.render();
+    }
+
+    // 상세 정보 모달 출력
+    function showDetail(event) {
+      const p = event.extendedProps;
+      const html = `
+        <div class="modal-item"><b>⏱️ 작성일시:</b> ${new Date(p.datetime).toLocaleString('ko-KR')}</div>
+        <div class="modal-item"><b>체온:</b> ${p.temperature ? p.temperature + ' ℃' : '-'}</div>
+        <div class="modal-item"><b>혈압/맥박:</b> ${p.bp || '-'}</div>
+        <div class="modal-item"><b>식사량:</b> ${p.meal || '-'}</div>
+        <div class="modal-item"><b>물 섭취:</b> ${p.water ? p.water + ' ml' : '-'}</div>
+        <div class="modal-item"><b>소변:</b> ${p.urine || '-'}</div>
+        <div class="modal-item"><b>설사/구토:</b> ${p.vomit_diarrhea || '-'}</div>
+        <div class="modal-item"><b>기타 특이사항:</b><br>${p.note || '-'}</div>
+      `;
+      document.getElementById('modalDate').innerText = event.startStr + " 건강 기록";
+      document.getElementById('modalBody').innerHTML = html;
+      document.getElementById('detailModal').style.display = 'block';
+    }
+
+    function closeModal() {
+      document.getElementById('detailModal').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
