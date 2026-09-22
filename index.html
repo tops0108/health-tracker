@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>일일 Check LIST</title>
+  <title>일일 건강 기록장</title>
   <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
   <style>
@@ -100,7 +100,7 @@
           </div>
         </div>
 
-        <!-- 식사량 (각 1행씩 총 3개 행) -->
+        <!-- 식사량 -->
         <div class="section-card">
           <div class="section-title">🥣 식사량</div>
           <div class="input-row">
@@ -145,7 +145,7 @@
           <textarea id="note" rows="3" placeholder="특이사항이나 컨디션을 적어주세요."></textarea>
         </div>
 
-        <button type="submit" id="saveBtn" class="submit-btn">저  장</button>
+        <button type="submit" id="saveBtn" class="submit-btn">기록 저장 / 덮어쓰기</button>
       </form>
     </div>
 
@@ -157,7 +157,7 @@
 
   <script>
     // ⚠️ 본인의 Google Apps Script 웹 앱 URL 입력
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxfLyOaPvmXJ8YnvktBFFXvSHpe9W9W3QCWrsGMliYJCDDm94dn6mwhoYa5e0VlYBzljw/exec";
+    const GAS_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
 
     let calendarObj = null;
     let fetchedEventsData = []; // 서버 데이터 저장용
@@ -196,17 +196,26 @@
       const selectedDate = document.getElementById('datetime').value;
       if (!selectedDate) return;
       
-      const targetEvent = fetchedEventsData.find(item => item.extendedProps && item.extendedProps.datetime === selectedDate);
+      const targetEvent = fetchedEventsData.find(item => {
+        const dateVal = item.extendedProps ? item.extendedProps.datetime : item.start;
+        return dateVal === selectedDate;
+      });
+
       if (targetEvent) {
-        fillFormWithData(targetEvent.extendedProps);
+        fillFormWithData(targetEvent.extendedProps, selectedDate);
       } else {
         clearFormExceptDate(selectedDate);
       }
     }
 
-    // 폼에 데이터 채워넣기
-    function fillFormWithData(props) {
-      document.getElementById('datetime').value = props.datetime || getTodayString();
+    // 폼에 데이터 채워넣기 (targetDate 매개변수로 명확하게 날짜 전달)
+    function fillFormWithData(props, targetDate) {
+      const finalDate = targetDate || (props && props.datetime) || getTodayString();
+      // YYYY-MM-DD 형태로 10자리 자르기
+      document.getElementById('datetime').value = String(finalDate).substring(0, 10);
+      
+      if (!props) return;
+      
       document.getElementById('temp_m').value = props.temp_m || '';
       document.getElementById('temp_a').value = props.temp_a || '';
       document.getElementById('temp_e').value = props.temp_e || '';
@@ -273,7 +282,7 @@
         body: JSON.stringify(payload)
       })
       .then(() => {
-        alert('성공적으로 저장되었습니다!');
+        alert('기록이 성공적으로 저장되었습니다!');
         preloadData();
       })
       .catch(err => {
@@ -304,19 +313,24 @@
             })
             .catch(err => failureCallback(err));
         },
-        // 이벤트 클릭 시
+        // 이벤트 (기록 있음 버튼) 클릭 시
         eventClick: function(info) {
+          const eventDate = info.event.startStr.substring(0, 10); // YYYY-MM-DD 추출
           const props = info.event.extendedProps;
-          fillFormWithData(props);
+          
+          fillFormWithData(props, eventDate);
           switchTab('register');
         },
-        // 달력 일자 클릭 시 -> 클릭한 날짜가 자동으로 폼에 들어감
+        // 달력 날짜 빈칸 클릭 시
         dateClick: function(info) {
-          const selectedDate = info.dateStr; // YYYY-MM-DD
-          const targetEvent = fetchedEventsData.find(item => item.extendedProps && item.extendedProps.datetime === selectedDate);
+          const selectedDate = info.dateStr.substring(0, 10);
+          const targetEvent = fetchedEventsData.find(item => {
+            const dateVal = item.extendedProps ? item.extendedProps.datetime : item.start;
+            return dateVal === selectedDate;
+          });
           
           if (targetEvent) {
-            fillFormWithData(targetEvent.extendedProps);
+            fillFormWithData(targetEvent.extendedProps, selectedDate);
           } else {
             clearFormExceptDate(selectedDate);
           }
