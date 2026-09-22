@@ -157,17 +157,24 @@
 
   <script>
     // ⚠️ 본인의 Google Apps Script 웹 앱 URL 입력
-    const GAS_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxfLyOaPvmXJ8YnvktBFFXvSHpe9W9W3QCWrsGMliYJCDDm94dn6mwhoYa5e0VlYBzljw/exec";
 
     let calendarObj = null;
-    let fetchedEventsData = []; // 서버 데이터 저장용
+    let fetchedEventsData = [];
 
+    // 로컬 시차 문제 없는 날짜 문자열(YYYY-MM-DD) 생성
     function getTodayString() {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
+    }
+
+    // 모든 날짜 문자열을 YYYY-MM-DD 표준 규격으로 정규화
+    function normalizeDateStr(rawStr) {
+      if (!rawStr) return getTodayString();
+      return String(rawStr).trim().substring(0, 10);
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -175,30 +182,28 @@
       preloadData();
     });
 
-    // 폼 클리어 함수 (날짜 지정)
     function clearFormExceptDate(targetDate) {
       document.getElementById('healthForm').reset();
-      document.getElementById('datetime').value = targetDate;
+      document.getElementById('datetime').value = normalizeDateStr(targetDate);
     }
 
-    // 서버 데이터 사전 로드
     function preloadData() {
       fetch(GAS_URL)
         .then(res => res.json())
         .then(data => {
           fetchedEventsData = data;
+          onDateChange(); // 현재 선택된 날짜에 맞는 데이터 자동 바인딩
         })
         .catch(err => console.error(err));
     }
 
-    // 날짜 변경 이벤트 (수동 입력 or 달력 연동)
     function onDateChange() {
-      const selectedDate = document.getElementById('datetime').value;
+      const selectedDate = normalizeDateStr(document.getElementById('datetime').value);
       if (!selectedDate) return;
       
       const targetEvent = fetchedEventsData.find(item => {
-        const dateVal = item.extendedProps ? item.extendedProps.datetime : item.start;
-        return dateVal === selectedDate;
+        const itemDate = normalizeDateStr(item.extendedProps ? item.extendedProps.datetime : item.start);
+        return itemDate === selectedDate;
       });
 
       if (targetEvent) {
@@ -208,11 +213,9 @@
       }
     }
 
-    // 폼에 데이터 채워넣기 (targetDate 매개변수로 명확하게 날짜 전달)
     function fillFormWithData(props, targetDate) {
-      const finalDate = targetDate || (props && props.datetime) || getTodayString();
-      // YYYY-MM-DD 형태로 10자리 자르기
-      document.getElementById('datetime').value = String(finalDate).substring(0, 10);
+      const finalDate = normalizeDateStr(targetDate || (props && props.datetime));
+      document.getElementById('datetime').value = finalDate;
       
       if (!props) return;
       
@@ -250,7 +253,7 @@
       }
     }
 
-    // 데이터 저장 (POST)
+    // 저장 (POST)
     document.getElementById('healthForm').addEventListener('submit', function(e) {
       e.preventDefault();
 
@@ -259,7 +262,7 @@
       saveBtn.innerText = '저장 중...';
 
       const payload = {
-        datetime: document.getElementById('datetime').value,
+        datetime: normalizeDateStr(document.getElementById('datetime').value),
         temp_m: document.getElementById('temp_m').value,
         temp_a: document.getElementById('temp_a').value,
         temp_e: document.getElementById('temp_e').value,
@@ -313,20 +316,17 @@
             })
             .catch(err => failureCallback(err));
         },
-        // 이벤트 (기록 있음 버튼) 클릭 시
         eventClick: function(info) {
-          const eventDate = info.event.startStr.substring(0, 10); // YYYY-MM-DD 추출
+          const eventDate = normalizeDateStr(info.event.startStr);
           const props = info.event.extendedProps;
-          
           fillFormWithData(props, eventDate);
           switchTab('register');
         },
-        // 달력 날짜 빈칸 클릭 시
         dateClick: function(info) {
-          const selectedDate = info.dateStr.substring(0, 10);
+          const selectedDate = normalizeDateStr(info.dateStr);
           const targetEvent = fetchedEventsData.find(item => {
-            const dateVal = item.extendedProps ? item.extendedProps.datetime : item.start;
-            return dateVal === selectedDate;
+            const itemDate = normalizeDateStr(item.extendedProps ? item.extendedProps.datetime : item.start);
+            return itemDate === selectedDate;
           });
           
           if (targetEvent) {
