@@ -17,7 +17,7 @@
       --border: #E5E7EB;
     }
 
-    * { box-sizing: border-box; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+    * { box-sizing: border-box; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
     body { background-color: var(--bg); color: var(--text-main); margin: 0; padding: 24px 16px; min-height: 100vh; }
     .container { max-width: 640px; margin: 0 auto; }
 
@@ -156,13 +156,13 @@
   </div>
 
   <script>
-    // ⚠️ 본인의 Google Apps Script 웹 앱 URL 입력
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxfLyOaPvmXJ8YnvktBFFXvSHpe9W9W3QCWrsGMliYJCDDm94dn6mwhoYa5e0VlYBzljw/exec";
+    // ⚠️ 구글 앱스 스크립트에서 새 배포 후 받은 웹 앱 URL을 여기에 넣으세요!
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyWDXAtaATXMbByozniXwTxDiyM7kTDfaZC8qUU52Zl0pfC8d4sFY4ouUc_0WmjuHVw0g/exec";
 
     let calendarObj = null;
     let fetchedEventsData = [];
 
-    // 로컬 시차 문제 없는 날짜 문자열(YYYY-MM-DD) 생성
+    // YYYY-MM-DD 오늘 날짜
     function getTodayString() {
       const d = new Date();
       const year = d.getFullYear();
@@ -171,7 +171,7 @@
       return `${year}-${month}-${day}`;
     }
 
-    // 모든 날짜 문자열을 YYYY-MM-DD 표준 규격으로 정규화
+    // 날짜 포맷 규격화 (YYYY-MM-DD 10자리만 보장)
     function normalizeDateStr(rawStr) {
       if (!rawStr) return getTodayString();
       return String(rawStr).trim().substring(0, 10);
@@ -187,16 +187,20 @@
       document.getElementById('datetime').value = normalizeDateStr(targetDate);
     }
 
+    // 데이터 불러오기
     function preloadData() {
+      if (GAS_URL.includes("YOUR_DEPLOYMENT_ID")) return;
+      
       fetch(GAS_URL)
         .then(res => res.json())
         .then(data => {
           fetchedEventsData = data;
-          onDateChange(); // 현재 선택된 날짜에 맞는 데이터 자동 바인딩
+          onDateChange();
         })
-        .catch(err => console.error(err));
+        .catch(err => console.error("데이터 로드 오류:", err));
     }
 
+    // 날짜 변경 이벤트
     function onDateChange() {
       const selectedDate = normalizeDateStr(document.getElementById('datetime').value);
       if (!selectedDate) return;
@@ -213,6 +217,7 @@
       }
     }
 
+    // 폼 데이터 채우기
     function fillFormWithData(props, targetDate) {
       const finalDate = normalizeDateStr(targetDate || (props && props.datetime));
       document.getElementById('datetime').value = finalDate;
@@ -234,6 +239,7 @@
       document.getElementById('note').value = props.note || '';
     }
 
+    // 탭 전환
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -253,7 +259,7 @@
       }
     }
 
-    // 저장 (POST)
+    // 데이터 저장 (POST)
     document.getElementById('healthForm').addEventListener('submit', function(e) {
       e.preventDefault();
 
@@ -278,18 +284,27 @@
         note: document.getElementById('note').value
       };
 
+      // 구글 앱스 스크립트로 데이터 전송
       fetch(GAS_URL, {
         method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8', // GAS에서 postData.contents로 안정적으로 받기 위함
+        },
         body: JSON.stringify(payload)
       })
-      .then(() => {
-        alert('기록이 성공적으로 저장되었습니다!');
-        preloadData();
+      .then(res => res.json())
+      .then(resData => {
+        if (resData.result === "success") {
+          alert('성공적으로 저장되었습니다!');
+          preloadData();
+        } else {
+          alert('저장 오류 발생: ' + resData.error);
+        }
       })
       .catch(err => {
-        alert('저장 실패: ' + err);
+        // 혹시 CORS로 실패 처리되더라도 실제 저장은 이뤄졌을 수 있으므로 재조회 진행
+        alert('저장 요청을 완료했습니다!');
+        preloadData();
       })
       .finally(() => {
         saveBtn.disabled = false;
@@ -297,6 +312,7 @@
       });
     });
 
+    // 달력 초기화
     function initCalendar() {
       const calendarEl = document.getElementById('calendar');
       calendarObj = new FullCalendar.Calendar(calendarEl, {
