@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>일일 Check LIST</title>
+  <title>일일 건강 기록장</title>
   <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
   <style>
@@ -42,6 +42,10 @@
     .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .input-box { display: flex; flex-direction: column; }
     .input-box label { font-size: 12px; font-weight: 500; color: var(--text-sub); margin-bottom: 4px; text-align: center; }
+
+    .input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .input-row:last-child { margin-bottom: 0; }
+    .input-row label { font-size: 13px; font-weight: 600; color: var(--text-sub); width: 45px; flex-shrink: 0; }
     
     input, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; background: #FFFFFF; color: var(--text-main); outline: none; transition: border-color 0.2s; }
     input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
@@ -96,13 +100,20 @@
           </div>
         </div>
 
-        <!-- 식사량 -->
+        <!-- 식사량 (각 1행씩 총 3개 행) -->
         <div class="section-card">
           <div class="section-title">🥣 식사량</div>
-          <div class="grid-3">
-            <div class="input-box"><label>아침</label><input type="text" id="meal_m" placeholder="1공기"></div>
-            <div class="input-box"><label>점심</label><input type="text" id="meal_a" placeholder="죽 1/2"></div>
-            <div class="input-box"><label>저녁</label><input type="text" id="meal_e" placeholder="일반식"></div>
+          <div class="input-row">
+            <label>아침</label>
+            <input type="text" id="meal_m" placeholder="예: 죽 1/2공기">
+          </div>
+          <div class="input-row">
+            <label>점심</label>
+            <input type="text" id="meal_a" placeholder="예: 일반식 1공기">
+          </div>
+          <div class="input-row">
+            <label>저녁</label>
+            <input type="text" id="meal_e" placeholder="예: 과일 및 수프">
           </div>
         </div>
 
@@ -149,7 +160,7 @@
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxfLyOaPvmXJ8YnvktBFFXvSHpe9W9W3QCWrsGMliYJCDDm94dn6mwhoYa5e0VlYBzljw/exec";
 
     let calendarObj = null;
-    let fetchedEventsData = []; // 서버에서 받아온 전체 데이터 캐싱
+    let fetchedEventsData = []; // 서버 데이터 저장용
 
     function getTodayString() {
       const today = new Date();
@@ -164,10 +175,10 @@
       preloadData();
     });
 
-    // 폼 클리어 함수
-    function clearFormExceptDate(dateVal) {
+    // 폼 클리어 함수 (날짜 지정)
+    function clearFormExceptDate(targetDate) {
       document.getElementById('healthForm').reset();
-      document.getElementById('datetime').value = dateVal;
+      document.getElementById('datetime').value = targetDate;
     }
 
     // 서버 데이터 사전 로드
@@ -180,11 +191,12 @@
         .catch(err => console.error(err));
     }
 
-    // 날짜 변경 이벤트 대응
+    // 날짜 변경 이벤트 (수동 입력 or 달력 연동)
     function onDateChange() {
       const selectedDate = document.getElementById('datetime').value;
-      const targetEvent = fetchedEventsData.find(item => item.extendedProps && item.extendedProps.datetime === selectedDate);
+      if (!selectedDate) return;
       
+      const targetEvent = fetchedEventsData.find(item => item.extendedProps && item.extendedProps.datetime === selectedDate);
       if (targetEvent) {
         fillFormWithData(targetEvent.extendedProps);
       } else {
@@ -229,7 +241,7 @@
       }
     }
 
-    // 데이터 저장 (POST - 동일 날짜 덮어쓰기 지원)
+    // 데이터 저장 (POST)
     document.getElementById('healthForm').addEventListener('submit', function(e) {
       e.preventDefault();
 
@@ -262,7 +274,7 @@
       })
       .then(() => {
         alert('기록이 성공적으로 저장되었습니다!');
-        preloadData(); // 최신 데이터 재로드
+        preloadData();
       })
       .catch(err => {
         alert('저장 실패: ' + err);
@@ -292,14 +304,15 @@
             })
             .catch(err => failureCallback(err));
         },
-        // 이벤트 클릭 시 (기록이 있는 날짜)
+        // 이벤트 클릭 시
         eventClick: function(info) {
-          fillFormWithData(info.event.extendedProps);
+          const props = info.event.extendedProps;
+          fillFormWithData(props);
           switchTab('register');
         },
-        // 빈 날짜 클릭 시
+        // 달력 일자 클릭 시 -> 클릭한 날짜가 자동으로 폼에 들어감
         dateClick: function(info) {
-          const selectedDate = info.dateStr;
+          const selectedDate = info.dateStr; // YYYY-MM-DD
           const targetEvent = fetchedEventsData.find(item => item.extendedProps && item.extendedProps.datetime === selectedDate);
           
           if (targetEvent) {
