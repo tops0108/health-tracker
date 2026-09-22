@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>일일 건강 기록장</title>
+  <title>일일 Check LIST</title>
   <!-- FullCalendar CDN -->
   <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
   <style>
@@ -53,8 +53,9 @@
   <div id="register" class="tab-content active">
     <form id="healthForm">
       <div class="form-group">
-        <label>날짜 및 시간</label>
-        <input type="datetime-local" id="datetime" required>
+        <label>날짜</label>
+        <!-- type="datetime-local"에서 type="date"로 변경 -->
+        <input type="date" id="datetime" required>
       </div>
       <div class="form-group">
         <label>체온 (℃)</label>
@@ -103,16 +104,23 @@
   </div>
 
   <script>
-    // ⚠️ [중요] 여기에 2단계에서 복사한 Google Apps Script 웹 앱 URL을 넣으세요!
+    // ⚠️ [중요] 본인의 Google Apps Script 웹 앱 URL로 입력해주세요.
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxfLyOaPvmXJ8YnvktBFFXvSHpe9W9W3QCWrsGMliYJCDDm94dn6mwhoYa5e0VlYBzljw/exec";
 
     let calendarObj = null;
 
-    // 페이지 로드 시 현재 시간 기본 설정
+    // 오늘 날짜를 YYYY-MM-DD 형태로 구해주는 함수
+    function getTodayString() {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // 페이지 로드 시 오늘 날짜로 기본 설정 (년-월-일)
     document.addEventListener('DOMContentLoaded', () => {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-      document.getElementById('datetime').value = now.toISOString().slice(0, 16);
+      document.getElementById('datetime').value = getTodayString();
     });
 
     // 탭 전환 로직
@@ -127,11 +135,10 @@
         document.querySelectorAll('.tab-btn')[1].classList.add('active');
         document.getElementById('calendar-tab').classList.add('active');
         
-        // 달력 첫 렌더링
         if (!calendarObj) {
           initCalendar();
         } else {
-          calendarObj.refetchEvents(); // 달력 데이터 새로고침
+          calendarObj.refetchEvents();
         }
       }
     }
@@ -144,7 +151,7 @@
       saveBtn.innerText = '저장 중...';
 
       const payload = {
-        datetime: document.getElementById('datetime').value,
+        datetime: document.getElementById('datetime').value, // YYYY-MM-DD
         temperature: document.getElementById('temperature').value,
         bp: document.getElementById('bp').value,
         meal: document.getElementById('meal').value,
@@ -156,17 +163,14 @@
 
       fetch(GAS_URL, {
         method: 'POST',
-        mode: 'no-cors', // GAS 전송용 설정
+        mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
       .then(() => {
         alert('기록이 성공적으로 저장되었습니다!');
         document.getElementById('healthForm').reset();
-        // 날짜 다시 설정
-        const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        document.getElementById('datetime').value = now.toISOString().slice(0, 16);
+        document.getElementById('datetime').value = getTodayString();
       })
       .catch(err => {
         alert('저장 실패: ' + err);
@@ -204,8 +208,12 @@
     // 상세 정보 모달 출력
     function showDetail(event) {
       const p = event.extendedProps;
+      
+      // 저장된 날짜 텍스트 (YYYY-MM-DD)
+      const rawDateStr = p.datetime ? String(p.datetime).substring(0, 10) : event.startStr;
+
       const html = `
-        <div class="modal-item"><b>⏱️ 작성일시:</b> ${new Date(p.datetime).toLocaleString('ko-KR')}</div>
+        <div class="modal-item"><b>📅 날짜:</b> ${rawDateStr}</div>
         <div class="modal-item"><b>체온:</b> ${p.temperature ? p.temperature + ' ℃' : '-'}</div>
         <div class="modal-item"><b>혈압/맥박:</b> ${p.bp || '-'}</div>
         <div class="modal-item"><b>식사량:</b> ${p.meal || '-'}</div>
@@ -214,7 +222,7 @@
         <div class="modal-item"><b>설사/구토:</b> ${p.vomit_diarrhea || '-'}</div>
         <div class="modal-item"><b>기타 특이사항:</b><br>${p.note || '-'}</div>
       `;
-      document.getElementById('modalDate').innerText = event.startStr + " 건강 기록";
+      document.getElementById('modalDate').innerText = rawDateStr + " 건강 기록";
       document.getElementById('modalBody').innerHTML = html;
       document.getElementById('detailModal').style.display = 'block';
     }
