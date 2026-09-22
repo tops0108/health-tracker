@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>일일 Check LIST</title>
-  <!-- Google Fonts & FullCalendar -->
   <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
   <style>
@@ -60,14 +59,7 @@
     .fc-toolbar-title { font-size: 18px !important; font-weight: 700; }
     .fc-button { border-radius: 8px !important; font-size: 13px !important; text-transform: capitalize !important; }
     .fc-event { cursor: pointer; border-radius: 6px; border: none !important; background-color: #EEF2FF !important; color: var(--primary) !important; padding: 2px 4px; font-weight: 600; }
-
-    /* Modal */
-    .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(3px); }
-    .modal-content { background: white; margin: 12% auto; padding: 24px; width: 90%; max-width: 440px; border-radius: 20px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); max-height: 80vh; overflow-y: auto; }
-    .modal-header { font-size: 18px; font-weight: 700; color: var(--text-main); border-bottom: 2px solid var(--bg); padding-bottom: 12px; margin-bottom: 16px; }
-    .modal-item { margin-bottom: 12px; font-size: 14px; background: #F9FAFB; padding: 10px 14px; border-radius: 10px; }
-    .modal-item-title { font-weight: 600; color: var(--primary); margin-bottom: 4px; font-size: 13px; }
-    .close-btn { width: 100%; padding: 12px; background: #F3F4F6; color: var(--text-main); border: none; border-radius: 10px; font-weight: 600; margin-top: 12px; cursor: pointer; }
+    .fc-daygrid-day { cursor: pointer; }
   </style>
 </head>
 <body>
@@ -75,7 +67,7 @@
   <div class="container">
     <div class="header">
       <h1>🏥 일일 건강 기록장</h1>
-      <p>매일의 체온, 식사, 혈압을 간편하게 기록하세요</p>
+      <p>날짜별 체온, 식사량, 혈압 상태 관리</p>
     </div>
 
     <!-- Tab Buttons -->
@@ -91,7 +83,7 @@
         <!-- 날짜 선택 -->
         <div class="single-group">
           <label>📅 기록 날짜</label>
-          <input type="date" id="datetime" required>
+          <input type="date" id="datetime" required onchange="onDateChange()">
         </div>
 
         <!-- 체온 -->
@@ -142,7 +134,7 @@
           <textarea id="note" rows="3" placeholder="특이사항이나 컨디션을 적어주세요."></textarea>
         </div>
 
-        <button type="submit" id="saveBtn" class="submit-btn">기록 저장하기</button>
+        <button type="submit" id="saveBtn" class="submit-btn">기록 저장 / 덮어쓰기</button>
       </form>
     </div>
 
@@ -152,20 +144,12 @@
     </div>
   </div>
 
-  <!-- Detail Modal -->
-  <div id="detailModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header" id="modalDate">상세 기록</div>
-      <div id="modalBody"></div>
-      <button class="close-btn" onclick="closeModal()">닫기</button>
-    </div>
-  </div>
-
   <script>
     // ⚠️ 본인의 Google Apps Script 웹 앱 URL 입력
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxfLyOaPvmXJ8YnvktBFFXvSHpe9W9W3QCWrsGMliYJCDDm94dn6mwhoYa5e0VlYBzljw/exec";
 
     let calendarObj = null;
+    let fetchedEventsData = []; // 서버에서 받아온 전체 데이터 캐싱
 
     function getTodayString() {
       const today = new Date();
@@ -177,7 +161,54 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('datetime').value = getTodayString();
+      preloadData();
     });
+
+    // 폼 클리어 함수
+    function clearFormExceptDate(dateVal) {
+      document.getElementById('healthForm').reset();
+      document.getElementById('datetime').value = dateVal;
+    }
+
+    // 서버 데이터 사전 로드
+    function preloadData() {
+      fetch(GAS_URL)
+        .then(res => res.json())
+        .then(data => {
+          fetchedEventsData = data;
+        })
+        .catch(err => console.error(err));
+    }
+
+    // 날짜 변경 이벤트 대응
+    function onDateChange() {
+      const selectedDate = document.getElementById('datetime').value;
+      const targetEvent = fetchedEventsData.find(item => item.extendedProps && item.extendedProps.datetime === selectedDate);
+      
+      if (targetEvent) {
+        fillFormWithData(targetEvent.extendedProps);
+      } else {
+        clearFormExceptDate(selectedDate);
+      }
+    }
+
+    // 폼에 데이터 채워넣기
+    function fillFormWithData(props) {
+      document.getElementById('datetime').value = props.datetime || getTodayString();
+      document.getElementById('temp_m').value = props.temp_m || '';
+      document.getElementById('temp_a').value = props.temp_a || '';
+      document.getElementById('temp_e').value = props.temp_e || '';
+      document.getElementById('meal_m').value = props.meal_m || '';
+      document.getElementById('meal_a').value = props.meal_a || '';
+      document.getElementById('meal_e').value = props.meal_e || '';
+      document.getElementById('bp_m').value = props.bp_m || '';
+      document.getElementById('bp_a').value = props.bp_a || '';
+      document.getElementById('bp_e').value = props.bp_e || '';
+      document.getElementById('water').value = props.water || '';
+      document.getElementById('urine').value = props.urine || '';
+      document.getElementById('vomit_diarrhea').value = props.vomit_diarrhea || '';
+      document.getElementById('note').value = props.note || '';
+    }
 
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -198,7 +229,7 @@
       }
     }
 
-    // 데이터 저장 (POST)
+    // 데이터 저장 (POST - 동일 날짜 덮어쓰기 지원)
     document.getElementById('healthForm').addEventListener('submit', function(e) {
       e.preventDefault();
 
@@ -231,15 +262,14 @@
       })
       .then(() => {
         alert('기록이 성공적으로 저장되었습니다!');
-        document.getElementById('healthForm').reset();
-        document.getElementById('datetime').value = getTodayString();
+        preloadData(); // 최신 데이터 재로드
       })
       .catch(err => {
         alert('저장 실패: ' + err);
       })
       .finally(() => {
         saveBtn.disabled = false;
-        saveBtn.innerText = '기록 저장하기';
+        saveBtn.innerText = '기록 저장 / 덮어쓰기';
       });
     });
 
@@ -256,53 +286,31 @@
         events: function(fetchInfo, successCallback, failureCallback) {
           fetch(GAS_URL)
             .then(res => res.json())
-            .then(data => successCallback(data))
+            .then(data => {
+              fetchedEventsData = data;
+              successCallback(data);
+            })
             .catch(err => failureCallback(err));
         },
+        // 이벤트 클릭 시 (기록이 있는 날짜)
         eventClick: function(info) {
-          showDetail(info.event);
+          fillFormWithData(info.event.extendedProps);
+          switchTab('register');
+        },
+        // 빈 날짜 클릭 시
+        dateClick: function(info) {
+          const selectedDate = info.dateStr;
+          const targetEvent = fetchedEventsData.find(item => item.extendedProps && item.extendedProps.datetime === selectedDate);
+          
+          if (targetEvent) {
+            fillFormWithData(targetEvent.extendedProps);
+          } else {
+            clearFormExceptDate(selectedDate);
+          }
+          switchTab('register');
         }
       });
       calendarObj.render();
-    }
-
-    function showDetail(event) {
-      const p = event.extendedProps;
-      const rawDateStr = p.datetime ? String(p.datetime).substring(0, 10) : event.startStr;
-
-      const html = `
-        <div class="modal-item">
-          <div class="modal-item-title">🌡️ 체온</div>
-          <div>아침: ${p.temp_m ? p.temp_m + '℃' : '-'} | 점심: ${p.temp_a ? p.temp_a + '℃' : '-'} | 저녁: ${p.temp_e ? p.temp_e + '℃' : '-'}</div>
-        </div>
-        <div class="modal-item">
-          <div class="modal-item-title">🥣 식사량</div>
-          <div>아침: ${p.meal_m || '-'} | 점심: ${p.meal_a || '-'} | 저녁: ${p.meal_e || '-'}</div>
-        </div>
-        <div class="modal-item">
-          <div class="modal-item-title">💓 혈압/맥박</div>
-          <div>아침: ${p.bp_m || '-'} | 점심: ${p.bp_a || '-'} | 저녁: ${p.bp_e || '-'}</div>
-        </div>
-        <div class="modal-item">
-          <div class="modal-item-title">💧 물 섭취량</div>
-          <div>${p.water ? p.water + ' ml' : '-'}</div>
-        </div>
-        <div class="modal-item">
-          <div class="modal-item-title">🚽 소변 / 🤢 설사구토</div>
-          <div>소변: ${p.urine || '-'} | 설사·구토: ${p.vomit_diarrhea || '-'}</div>
-        </div>
-        <div class="modal-item">
-          <div class="modal-item-title">📝 특이사항</div>
-          <div>${p.note || '-'}</div>
-        </div>
-      `;
-      document.getElementById('modalDate').innerText = rawDateStr + " 기록";
-      document.getElementById('modalBody').innerHTML = html;
-      document.getElementById('detailModal').style.display = 'block';
-    }
-
-    function closeModal() {
-      document.getElementById('detailModal').style.display = 'none';
     }
   </script>
 </body>
