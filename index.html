@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>일일 건강 기록장</title>
+  <title>일일 Check LIST</title>
   <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
   <style>
@@ -145,7 +145,7 @@
           <textarea id="note" rows="3" placeholder="특이사항이나 컨디션을 적어주세요."></textarea>
         </div>
 
-        <button type="submit" id="saveBtn" class="submit-btn">기록 저장 / 덮어쓰기</button>
+        <button type="submit" id="saveBtn" class="submit-btn">저  장</button>
       </form>
     </div>
 
@@ -273,7 +273,7 @@
         body: JSON.stringify(payload)
       })
       .then(() => {
-        alert('기록이 성공적으로 저장되었습니다!');
+        alert('성공적으로 저장되었습니다!');
         preloadData();
       })
       .catch(err => {
