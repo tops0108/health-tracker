@@ -52,6 +52,23 @@
     /* Section & Form */
     .section-card { background: #F9FAFB; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
     .section-title { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 8px; }
+
+    /* 몸무게 카드 커스텀 디자인 */
+    .weight-card {
+      background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%);
+      border: 1px solid #C7D2FE;
+    }
+    .weight-input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .weight-unit {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      padding-right: 4px;
+    }
     
     .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
     .input-box { display: flex; flex-direction: column; }
@@ -67,7 +84,7 @@
     .single-group { margin-bottom: 12px; }
     .single-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
 
-    /* 하단 고정 버튼 */
+    /* 하단 고정 저장 버튼 */
     .bottom-bar {
       position: fixed;
       bottom: 0;
@@ -101,7 +118,7 @@
     }
     .submit-btn:disabled { background: #9CA3AF; cursor: not-allowed; box-shadow: none; }
 
-    /* 로딩 스피너 오버레이 */
+    /* 로딩 오버레이 */
     .loading-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -177,6 +194,16 @@
           <input type="date" id="datetime" required onchange="onDateChange()">
         </div>
 
+        <!-- ⚖️ 체온 위에 추가된 몸무게 카드 -->
+        <div class="section-card weight-card">
+          <div class="section-title" style="color: var(--primary);">⚖️ 오늘의 몸무게</div>
+          <div class="weight-input-wrapper">
+            <input type="number" step="0.1" id="weight" placeholder="예: 65.4" style="border-color: #A5B4FC;">
+            <span class="weight-unit">kg</span>
+          </div>
+        </div>
+
+        <!-- 🌡️ 체온 -->
         <div class="section-card">
           <div class="section-title">🌡️ 체온 (℃)</div>
           <div class="grid-3">
@@ -219,7 +246,7 @@
           <textarea id="note" rows="3" placeholder="특이사항이나 컨디션을 적어주세요."></textarea>
         </div>
 
-        <!-- 하단 고정 버튼 (요청하신 문구로 반영) -->
+        <!-- 하단 고정 버튼 -->
         <div class="bottom-bar">
           <div class="bottom-bar-inner">
             <button type="submit" id="saveBtn" class="submit-btn">저    장</button>
@@ -236,8 +263,8 @@
   </div>
 
   <script>
-    // ⚠️ 앱스 스크립트 웹 앱 URL을 입력해 주세요.
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxQyybFeI8OXNbSEELyZBn-k4N8gyOY_zcQqUobIt3SbtWofMWQEyU9S2km7q_3x8gRYQ/exec";
+    // ⚠️ 구글 앱스 스크립트 배포 URL 입력
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxVzHZCuMCOmaHBLC71PzSCg1sE_0bEKzBs8rx3mKAM8bijlF3-6ptXXPbSDSmR08uUWA/exec";
 
     let calendarObj = null;
     let fetchedEventsData = [];
@@ -268,7 +295,6 @@
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('datetime').value = getTodayString();
       
-      // 🚀 성능 최적화: 브라우저 캐시(LocalStorage)에서 먼저 즉시 복원하여 딜레이 제거
       const localCached = localStorage.getItem('health_records_cache');
       if (localCached) {
         try {
@@ -279,7 +305,6 @@
         showLoading('초기 데이터 로딩 중...');
       }
 
-      // 서버에서 최신 데이터 백그라운드 동기화
       preloadData();
     });
 
@@ -298,10 +323,7 @@
         .then(res => res.json())
         .then(data => {
           fetchedEventsData = data;
-          
-          // 받아온 데이터를 로컬 캐시에 저장 (다음 접속 시 즉시 로드용)
           localStorage.setItem('health_records_cache', JSON.stringify(data));
-          
           onDateChange();
 
           if (calendarObj) {
@@ -337,6 +359,7 @@
       
       if (!props) return;
       
+      document.getElementById('weight').value = props.weight || '';
       document.getElementById('temp_m').value = props.temp_m || '';
       document.getElementById('temp_a').value = props.temp_a || '';
       document.getElementById('temp_e').value = props.temp_e || '';
@@ -373,7 +396,6 @@
       }
     }
 
-    // 폼 제출 (저장)
     document.getElementById('healthForm').addEventListener('submit', function(e) {
       e.preventDefault();
 
@@ -385,6 +407,7 @@
 
       const payload = {
         datetime: targetDate,
+        weight: document.getElementById('weight').value,
         temp_m: document.getElementById('temp_m').value,
         temp_a: document.getElementById('temp_a').value,
         temp_e: document.getElementById('temp_e').value,
@@ -400,7 +423,6 @@
         note: document.getElementById('note').value
       };
 
-      // 1. 메모리 캐시 즉시 반영 (즉각적인 사용자 반응성 확보)
       const existingIdx = fetchedEventsData.findIndex(item => {
         const itemDate = normalizeDateStr(item.extendedProps ? item.extendedProps.datetime : item.start);
         return itemDate === targetDate;
@@ -419,7 +441,6 @@
       }
       localStorage.setItem('health_records_cache', JSON.stringify(fetchedEventsData));
 
-      // 2. 서버 백그라운드 저장
       fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
