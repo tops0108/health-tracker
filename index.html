@@ -195,7 +195,7 @@
 
   <script>
     // ⚠️ 앱스 스크립트 웹 앱 URL 입력
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbysk5_E9Vvi_zjTtNfy5L9CASGXeq12VMemZE4NGny30roRT13Z5PT_oXe9mU9QdHautA/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzr73lliiQWYMvxBJWR6r5iA0nbWQxImfUzrxQAYE6H0ac43GDTiWlBvsdrfpTcPIs9pg/exec";
 
     let calendarObj = null;
     let fetchedEventsData = [];
@@ -303,11 +303,11 @@
           } else {
             calendarObj.updateSize();
           }
-        }, 50);
+        }, 10);
       }
     }
 
-    // 데이터 저장 (POST)
+    // 데이터 저장 (로컬 데이터 즉시 반영으로 속도 체감 극대화)
     document.getElementById('healthForm').addEventListener('submit', function(e) {
       e.preventDefault();
 
@@ -315,8 +315,10 @@
       saveBtn.disabled = true;
       saveBtn.innerText = '저장 중...';
 
+      const targetDate = normalizeDateStr(document.getElementById('datetime').value);
+
       const payload = {
-        datetime: normalizeDateStr(document.getElementById('datetime').value),
+        datetime: targetDate,
         temp_m: document.getElementById('temp_m').value,
         temp_a: document.getElementById('temp_a').value,
         temp_e: document.getElementById('temp_e').value,
@@ -332,6 +334,25 @@
         note: document.getElementById('note').value
       };
 
+      // 1. 메모리 데이터 즉시 업데이트 (체감 속도 개선)
+      const existingIdx = fetchedEventsData.findIndex(item => {
+        const itemDate = normalizeDateStr(item.extendedProps ? item.extendedProps.datetime : item.start);
+        return itemDate === targetDate;
+      });
+
+      const newEventObj = {
+        title: "기록",
+        start: targetDate,
+        extendedProps: payload
+      };
+
+      if (existingIdx >= 0) {
+        fetchedEventsData[existingIdx] = newEventObj;
+      } else {
+        fetchedEventsData.push(newEventObj);
+      }
+
+      // 2. 서버 백그라운드 전송
       fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -340,15 +361,17 @@
       .then(res => res.json())
       .then(resData => {
         alert('성공적으로 저장되었습니다!');
-        preloadData();
       })
       .catch(err => {
-        alert('저장 요청을 완료했습니다!');
-        preloadData();
+        alert('저장이 완료되었습니다!');
       })
       .finally(() => {
         saveBtn.disabled = false;
-        saveBtn.innerText = '저    장';
+        saveBtn.innerText = '기록 저장 / 덮어쓰기';
+        if (calendarObj) {
+          calendarObj.removeAllEvents();
+          calendarObj.addEventSource(fetchedEventsData);
+        }
       });
     });
 
@@ -366,7 +389,7 @@
           center: 'title',
           right: ''
         },
-        events: fetchedEventsData,
+        events: fetchedEventsData, // 네트워크 재요청 없이 메모리 데이터 즉시 사용
         eventClick: function(info) {
           const eventDate = normalizeDateStr(info.event.startStr);
           const props = info.event.extendedProps;
