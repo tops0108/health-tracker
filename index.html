@@ -97,8 +97,46 @@
       font-weight: 700; 
       cursor: pointer; 
       box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+      letter-spacing: 2px;
     }
     .submit-btn:disabled { background: #9CA3AF; cursor: not-allowed; box-shadow: none; }
+
+    /* 로딩 스피너 오버레이 */
+    .loading-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(3px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .loading-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border: 4px solid #E5E7EB;
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .loading-text {
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
 
     /* 모바일 달력 */
     #calendar { width: 100%; min-height: 450px; }
@@ -111,6 +149,12 @@
   </style>
 </head>
 <body>
+
+  <!-- 로딩 오버레이 -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div id="loadingText" class="loading-text">데이터를 불러오는 중...</div>
+  </div>
 
   <div class="container">
     <div class="header">
@@ -175,7 +219,7 @@
           <textarea id="note" rows="3" placeholder="특이사항이나 컨디션을 적어주세요."></textarea>
         </div>
 
-        <!-- 하단 고정 버튼 -->
+        <!-- 하단 고정 버튼 (요청하신 문구로 반영) -->
         <div class="bottom-bar">
           <div class="bottom-bar-inner">
             <button type="submit" id="saveBtn" class="submit-btn">저    장</button>
@@ -192,8 +236,8 @@
   </div>
 
   <script>
-    // ⚠️ 새 배포 후 발급받은 Apps Script URL 주소를 여기에 넣어주세요!
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwlhnFkowI9oXdcHnsnpxRDC5dgCNL6WbeP85VV1AH-k2fJCReZODp-yVfdQgHi_lTDbQ/exec";
+    // ⚠️ 앱스 스크립트 웹 앱 URL을 입력해 주세요.
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxQyybFeI8OXNbSEELyZBn-k4N8gyOY_zcQqUobIt3SbtWofMWQEyU9S2km7q_3x8gRYQ/exec";
 
     let calendarObj = null;
     let fetchedEventsData = [];
@@ -211,8 +255,31 @@
       return String(rawStr).trim().substring(0, 10);
     }
 
+    function showLoading(msg) {
+      const overlay = document.getElementById('loadingOverlay');
+      document.getElementById('loadingText').innerText = msg || '동기화 중...';
+      overlay.classList.add('active');
+    }
+
+    function hideLoading() {
+      document.getElementById('loadingOverlay').classList.remove('active');
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('datetime').value = getTodayString();
+      
+      // 🚀 성능 최적화: 브라우저 캐시(LocalStorage)에서 먼저 즉시 복원하여 딜레이 제거
+      const localCached = localStorage.getItem('health_records_cache');
+      if (localCached) {
+        try {
+          fetchedEventsData = JSON.parse(localCached);
+          onDateChange();
+        } catch(e) {}
+      } else {
+        showLoading('초기 데이터 로딩 중...');
+      }
+
+      // 서버에서 최신 데이터 백그라운드 동기화
       preloadData();
     });
 
@@ -221,14 +288,20 @@
       document.getElementById('datetime').value = normalizeDateStr(targetDate);
     }
 
-    // 구글 웹 앱 데이터 조회 (redirect: "follow" 처리로 안정적인 조회)
     function preloadData() {
-      if (GAS_URL.includes("YOUR_DEPLOYMENT_ID")) return;
+      if (GAS_URL.includes("YOUR_DEPLOYMENT_ID")) {
+        hideLoading();
+        return;
+      }
       
       fetch(GAS_URL, { redirect: "follow" })
         .then(res => res.json())
         .then(data => {
           fetchedEventsData = data;
+          
+          // 받아온 데이터를 로컬 캐시에 저장 (다음 접속 시 즉시 로드용)
+          localStorage.setItem('health_records_cache', JSON.stringify(data));
+          
           onDateChange();
 
           if (calendarObj) {
@@ -236,7 +309,10 @@
             calendarObj.addEventSource(fetchedEventsData);
           }
         })
-        .catch(err => console.error("데이터 로드 오류:", err));
+        .catch(err => console.error("데이터 로드 오류:", err))
+        .finally(() => {
+          hideLoading();
+        });
     }
 
     function onDateChange() {
@@ -297,12 +373,13 @@
       }
     }
 
+    // 폼 제출 (저장)
     document.getElementById('healthForm').addEventListener('submit', function(e) {
       e.preventDefault();
 
       const saveBtn = document.getElementById('saveBtn');
       saveBtn.disabled = true;
-      saveBtn.innerText = '저장 중...';
+      showLoading('기록 저장 중...');
 
       const targetDate = normalizeDateStr(document.getElementById('datetime').value);
 
@@ -323,6 +400,26 @@
         note: document.getElementById('note').value
       };
 
+      // 1. 메모리 캐시 즉시 반영 (즉각적인 사용자 반응성 확보)
+      const existingIdx = fetchedEventsData.findIndex(item => {
+        const itemDate = normalizeDateStr(item.extendedProps ? item.extendedProps.datetime : item.start);
+        return itemDate === targetDate;
+      });
+
+      const newEventObj = {
+        title: "기록",
+        start: targetDate,
+        extendedProps: payload
+      };
+
+      if (existingIdx >= 0) {
+        fetchedEventsData[existingIdx] = newEventObj;
+      } else {
+        fetchedEventsData.push(newEventObj);
+      }
+      localStorage.setItem('health_records_cache', JSON.stringify(fetchedEventsData));
+
+      // 2. 서버 백그라운드 저장
       fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -330,15 +427,17 @@
       })
       .then(() => {
         alert('성공적으로 저장되었습니다!');
-        preloadData();
       })
       .catch(err => {
         alert('저장이 완료되었습니다!');
-        preloadData();
       })
       .finally(() => {
         saveBtn.disabled = false;
-        saveBtn.innerText = '저    장';
+        hideLoading();
+        if (calendarObj) {
+          calendarObj.removeAllEvents();
+          calendarObj.addEventSource(fetchedEventsData);
+        }
       });
     });
 
