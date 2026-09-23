@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>일일 Check LIST</title>
+  <title>일일 건강 기록장</title>
 
-  <!-- PWA / 모바일 홈 화면 추가 시 앱처럼 풀스크린 실행 설정 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="건강기록장">
@@ -26,7 +25,6 @@
 
     * { box-sizing: border-box; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
     
-    /* 하단 고정 버튼 여백 확보를 위한 padding-bottom 적용 */
     body { 
       background-color: var(--bg); 
       color: var(--text-main); 
@@ -69,7 +67,7 @@
     .single-group { margin-bottom: 12px; }
     .single-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
 
-    /* 📌 하단 고정 저장 버튼 영역 (Sticky Bottom Bar) */
+    /* 하단 고정 버튼 */
     .bottom-bar {
       position: fixed;
       bottom: 0;
@@ -102,7 +100,7 @@
     }
     .submit-btn:disabled { background: #9CA3AF; cursor: not-allowed; box-shadow: none; }
 
-    /* 모바일 달력 크기 조절 (잘림 및 깨짐 방지) */
+    /* 모바일 달력 */
     #calendar { width: 100%; min-height: 450px; }
     .fc { --fc-border-color: #E5E7EB; --fc-button-bg-color: var(--primary); --fc-button-border-color: var(--primary); font-size: 13px; }
     .fc-toolbar-title { font-size: 16px !important; font-weight: 700; }
@@ -116,7 +114,7 @@
 
   <div class="container">
     <div class="header">
-      <h1>🏥 일일 Check LIST</h1>
+      <h1>🏥 일일 건강 기록장</h1>
       <p>날짜별 체온, 식사량, 혈압 상태 관리</p>
     </div>
 
@@ -177,7 +175,7 @@
           <textarea id="note" rows="3" placeholder="특이사항이나 컨디션을 적어주세요."></textarea>
         </div>
 
-        <!-- 📌 하단 고정 버튼 바 -->
+        <!-- 하단 고정 버튼 -->
         <div class="bottom-bar">
           <div class="bottom-bar-inner">
             <button type="submit" id="saveBtn" class="submit-btn">저    장</button>
@@ -194,13 +192,12 @@
   </div>
 
   <script>
-    // ⚠️ 앱스 스크립트 웹 앱 URL 입력
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbzr73lliiQWYMvxBJWR6r5iA0nbWQxImfUzrxQAYE6H0ac43GDTiWlBvsdrfpTcPIs9pg/exec";
+    // ⚠️ 새 배포 후 발급받은 Apps Script URL 주소를 여기에 넣어주세요!
+    const GAS_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
 
     let calendarObj = null;
     let fetchedEventsData = [];
 
-    // 로컬 기준 YYYY-MM-DD 구하기
     function getTodayString() {
       const d = new Date();
       const year = d.getFullYear();
@@ -209,7 +206,6 @@
       return `${year}-${month}-${day}`;
     }
 
-    // 날짜 규격화 (YYYY-MM-DD 10자리 보장)
     function normalizeDateStr(rawStr) {
       if (!rawStr) return getTodayString();
       return String(rawStr).trim().substring(0, 10);
@@ -225,16 +221,14 @@
       document.getElementById('datetime').value = normalizeDateStr(targetDate);
     }
 
-    // 서버에서 데이터를 먼저 불러온 뒤 오늘 날짜 데이터가 있으면 자동 폼 바인딩
+    // 구글 웹 앱 데이터 조회 (redirect: "follow" 처리로 안정적인 조회)
     function preloadData() {
       if (GAS_URL.includes("YOUR_DEPLOYMENT_ID")) return;
       
-      fetch(GAS_URL)
+      fetch(GAS_URL, { redirect: "follow" })
         .then(res => res.json())
         .then(data => {
           fetchedEventsData = data;
-          
-          // 오늘 날짜 데이터 자동 불러오기
           onDateChange();
 
           if (calendarObj) {
@@ -245,7 +239,6 @@
         .catch(err => console.error("데이터 로드 오류:", err));
     }
 
-    // 날짜 선택 시 해당 날짜 데이터 가져와 보여주기
     function onDateChange() {
       const selectedDate = normalizeDateStr(document.getElementById('datetime').value);
       if (!selectedDate) return;
@@ -262,7 +255,6 @@
       }
     }
 
-    // Input 필드에 데이터 바인딩
     function fillFormWithData(props, targetDate) {
       const finalDate = normalizeDateStr(targetDate || (props && props.datetime));
       document.getElementById('datetime').value = finalDate;
@@ -284,7 +276,6 @@
       document.getElementById('note').value = props.note || '';
     }
 
-    // 탭 스위칭 및 달력 리사이징
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -296,18 +287,16 @@
         document.querySelectorAll('.tab-btn')[1].classList.add('active');
         document.getElementById('calendar-tab').classList.add('active');
         
-        // 달력 깨짐 방지를 위해 레이아웃 계산 후 updateSize 호출
         setTimeout(() => {
           if (!calendarObj) {
             initCalendar();
           } else {
             calendarObj.updateSize();
           }
-        }, 10);
+        }, 50);
       }
     }
 
-    // 데이터 저장 (로컬 데이터 즉시 반영으로 속도 체감 극대화)
     document.getElementById('healthForm').addEventListener('submit', function(e) {
       e.preventDefault();
 
@@ -334,48 +323,25 @@
         note: document.getElementById('note').value
       };
 
-      // 1. 메모리 데이터 즉시 업데이트 (체감 속도 개선)
-      const existingIdx = fetchedEventsData.findIndex(item => {
-        const itemDate = normalizeDateStr(item.extendedProps ? item.extendedProps.datetime : item.start);
-        return itemDate === targetDate;
-      });
-
-      const newEventObj = {
-        title: "기록",
-        start: targetDate,
-        extendedProps: payload
-      };
-
-      if (existingIdx >= 0) {
-        fetchedEventsData[existingIdx] = newEventObj;
-      } else {
-        fetchedEventsData.push(newEventObj);
-      }
-
-      // 2. 서버 백그라운드 전송
       fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       })
-      .then(res => res.json())
-      .then(resData => {
+      .then(() => {
         alert('성공적으로 저장되었습니다!');
+        preloadData();
       })
       .catch(err => {
         alert('저장이 완료되었습니다!');
+        preloadData();
       })
       .finally(() => {
         saveBtn.disabled = false;
-        saveBtn.innerText = '기록 저장 / 덮어쓰기';
-        if (calendarObj) {
-          calendarObj.removeAllEvents();
-          calendarObj.addEventSource(fetchedEventsData);
-        }
+        saveBtn.innerText = '저    장';
       });
     });
 
-    // FullCalendar 초기화
     function initCalendar() {
       const calendarEl = document.getElementById('calendar');
       calendarObj = new FullCalendar.Calendar(calendarEl, {
@@ -389,7 +355,7 @@
           center: 'title',
           right: ''
         },
-        events: fetchedEventsData, // 네트워크 재요청 없이 메모리 데이터 즉시 사용
+        events: fetchedEventsData,
         eventClick: function(info) {
           const eventDate = normalizeDateStr(info.event.startStr);
           const props = info.event.extendedProps;
