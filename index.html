@@ -49,47 +49,6 @@
     .tab-content { display: none; background: var(--card-bg); border-radius: 18px; padding: 16px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); }
     .tab-content.active { display: block; }
 
-    /* 📌 사파리 호환 날짜 선택 컨트롤러 (기본 input type="date" 성격 유지) */
-    .date-control-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .date-arrow-btn {
-      background: #EEF2FF;
-      color: var(--primary);
-      border: 1px solid #C7D2FE;
-      border-radius: 10px;
-      width: 46px;
-      height: 44px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: background 0.2s;
-    }
-    .date-arrow-btn:active {
-      background: #C7D2FE;
-    }
-    #datetime {
-      flex: 1;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
-      background: #FFFFFF;
-      color: var(--text-main);
-      outline: none;
-      text-align: center;
-    }
-    #datetime:focus {
-      border-color: var(--primary);
-    }
-
     /* Section & Form */
     .section-card { background: #F9FAFB; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
     .section-title { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 8px; }
@@ -230,14 +189,9 @@
     <div id="register" class="tab-content active">
       <form id="healthForm">
         
-        <!-- 날짜 선택 (사파리 순정 date input 복원) -->
         <div class="single-group">
           <label>📅 기록 날짜</label>
-          <div class="date-control-wrapper">
-            <button type="button" class="date-arrow-btn" onclick="moveDate(-1)" title="전날">◀</button>
-            <input type="date" id="datetime" required onchange="onDateChange()">
-            <button type="button" class="date-arrow-btn" onclick="moveDate(1)" title="다음날">▶</button>
-          </div>
+          <input type="date" id="datetime" required onchange="onDateChange()">
         </div>
 
         <!-- 몸무게 카드 -->
@@ -310,7 +264,7 @@
 
   <script>
     // ⚠️ 구글 앱스 스크립트 배포 URL 입력
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwOJt3ruJyYzGd073C_lJJXLapfGgw_9TPJXmDzMW5Yz2ISEZBbIR3moOFDrdKIYAsbFg/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbytHK-2iHkDkg0VWf4pAssNCnl_7RF9amYaTPPz8h8X0V6YyvmNp-52QB78sMuSRvvR5A/exec";
 
     let calendarObj = null;
     let fetchedEventsData = [];
@@ -323,23 +277,9 @@
       return `${year}-${month}-${day}`;
     }
 
-    // 사파리/크롬 날짜 표준 정규화
     function normalizeDateStr(rawStr) {
       if (!rawStr) return getTodayString();
-      let s = String(rawStr).trim();
-      if (s.includes('T')) s = s.split('T')[0];
-
-      let cleaned = s.replace(/[./]/g, '-');
-      if (cleaned.endsWith('-')) cleaned = cleaned.slice(0, -1);
-      
-      const parts = cleaned.split('-');
-      if (parts.length === 3) {
-        const y = parts[0];
-        const m = parts[1].padStart(2, '0');
-        const d = parts[2].padStart(2, '0');
-        return `${y}-${m}-${d}`;
-      }
-      return cleaned.substring(0, 10);
+      return String(rawStr).trim().substring(0, 10);
     }
 
     function showLoading(msg) {
@@ -368,27 +308,9 @@
       preloadData();
     });
 
-    // ◀ ▶ 화살표 클릭 시 안전한 날짜 이동
-    function moveDate(days) {
-      const dateInput = document.getElementById('datetime');
-      const currentVal = normalizeDateStr(dateInput.value);
-      
-      const parts = currentVal.split('-');
-      let currentDate = new Date(Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])));
-      currentDate.setUTCDate(currentDate.getUTCDate() + days);
-      
-      const year = currentDate.getUTCFullYear();
-      const month = String(currentDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(currentDate.getUTCDate()).padStart(2, '0');
-      
-      dateInput.value = `${year}-${month}-${day}`;
-      onDateChange(); 
-    }
-
     function clearFormExceptDate(targetDate) {
-      const normalized = normalizeDateStr(targetDate);
       document.getElementById('healthForm').reset();
-      document.getElementById('datetime').value = normalized;
+      document.getElementById('datetime').value = normalizeDateStr(targetDate);
     }
 
     function preloadData() {
