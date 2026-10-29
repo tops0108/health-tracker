@@ -220,7 +220,7 @@
     <div id="register" class="tab-content active">
       <form id="healthForm">
         
-        <!-- 날짜 변경 화살표 버튼 추가 -->
+        <!-- 날짜 선택 -->
         <div class="single-group">
           <label>📅 기록 날짜</label>
           <div class="date-control-wrapper">
@@ -300,7 +300,7 @@
 
   <script>
     // ⚠️ 구글 앱스 스크립트 배포 URL 입력
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxVzHZCuMCOmaHBLC71PzSCg1sE_0bEKzBs8rx3mKAM8bijlF3-6ptXXPbSDSmR08uUWA/exec";
+    const GAS_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
 
     let calendarObj = null;
     let fetchedEventsData = [];
@@ -313,9 +313,26 @@
       return `${year}-${month}-${day}`;
     }
 
+    // 📌 스마트폰에서 점(.)이나 슬래시(/)로 들어오는 날짜 포맷을 YYYY-MM-DD로 완벽히 정규화
     function normalizeDateStr(rawStr) {
       if (!rawStr) return getTodayString();
-      return String(rawStr).trim().substring(0, 10);
+      // 점(.)이나 슬래시(/)를 하이픈(-)으로 통일하고 앞뒤 공백 제거
+      let cleaned = String(rawStr).trim().replace(/[./]/g, '-');
+      // 만약 YYYY.MM.DD. 형태로 뒤에 점이 하나 더 붙어 마감되는 경우 처리
+      if (cleaned.endsWith('-')) {
+        cleaned = cleaned.slice(0, -1);
+      }
+      
+      // 혹시 YYYY-M-D 형태로 들어온 경우 자릿수 보정
+      const parts = cleaned.split('-');
+      if (parts.length === 3) {
+        const y = parts[0];
+        const m = parts[1].padStart(2, '0');
+        const d = parts[2].padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      
+      return cleaned.substring(0, 10);
     }
 
     function showLoading(msg) {
@@ -355,7 +372,7 @@
       const day = String(currentDate.getDate()).padStart(2, '0');
       
       dateInput.value = `${year}-${month}-${day}`;
-      onDateChange(); // 날짜 변경에 맞춰 데이터 바인딩 실행
+      onDateChange(); 
     }
 
     function clearFormExceptDate(targetDate) {
