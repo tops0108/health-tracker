@@ -49,6 +49,47 @@
     .tab-content { display: none; background: var(--card-bg); border-radius: 18px; padding: 16px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); }
     .tab-content.active { display: block; }
 
+    /* 날짜 선택 컨트롤러 레이아웃 */
+    .date-control-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .date-arrow-btn {
+      background: #EEF2FF;
+      color: var(--primary);
+      border: 1px solid #C7D2FE;
+      border-radius: 10px;
+      width: 46px;
+      height: 42px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .date-arrow-btn:active {
+      background: #C7D2FE;
+    }
+    #datetime {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      background: #FFFFFF;
+      color: var(--text-main);
+      outline: none;
+      text-align: center;
+      font-weight: 600;
+    }
+    #datetime:focus {
+      border-color: var(--primary);
+    }
+
     /* Section & Form */
     .section-card { background: #F9FAFB; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
     .section-title { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 8px; }
@@ -189,9 +230,14 @@
     <div id="register" class="tab-content active">
       <form id="healthForm">
         
+        <!-- 날짜 선택 + 화살표 -->
         <div class="single-group">
           <label>📅 기록 날짜</label>
-          <input type="date" id="datetime" required onchange="onDateChange()">
+          <div class="date-control-wrapper">
+            <button type="button" class="date-arrow-btn" onclick="moveDate(-1)" title="전날">◀</button>
+            <input type="date" id="datetime" required onchange="onDateChange()">
+            <button type="button" class="date-arrow-btn" onclick="moveDate(1)" title="다음날">▶</button>
+          </div>
         </div>
 
         <!-- 몸무게 카드 -->
@@ -264,7 +310,7 @@
 
   <script>
     // ⚠️ 구글 앱스 스크립트 배포 URL 입력
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbytHK-2iHkDkg0VWf4pAssNCnl_7RF9amYaTPPz8h8X0V6YyvmNp-52QB78sMuSRvvR5A/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxltlVN-JwJPTlUblLGqhhSxYDQTH-OMvNsZn8fax8mSWa93We6NZbtUhr3yicaJHN-sA/exec";
 
     let calendarObj = null;
     let fetchedEventsData = [];
@@ -307,6 +353,20 @@
 
       preloadData();
     });
+
+    // ◀ ▶ 화살표 클릭 시 하루씩 날짜 이동
+    function moveDate(days) {
+      const dateInput = document.getElementById('datetime');
+      let baseDate = dateInput.value ? new Date(dateInput.value) : new Date();
+      baseDate.setDate(baseDate.getDate() + days);
+      
+      const year = baseDate.getFullYear();
+      const month = String(baseDate.getMonth() + 1).padStart(2, '0');
+      const day = String(baseDate.getDate()).padStart(2, '0');
+      
+      dateInput.value = `${year}-${month}-${day}`;
+      onDateChange();
+    }
 
     function clearFormExceptDate(targetDate) {
       document.getElementById('healthForm').reset();
