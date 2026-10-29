@@ -49,7 +49,7 @@
     .tab-content { display: none; background: var(--card-bg); border-radius: 18px; padding: 16px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); }
     .tab-content.active { display: block; }
 
-    /* 날짜 선택 컨트롤러 레이아웃 */
+    /* 📌 사파리 호환 날짜 선택 컨트롤러 (기본 input type="date" 성격 유지) */
     .date-control-wrapper {
       display: flex;
       align-items: center;
@@ -60,8 +60,8 @@
       color: var(--primary);
       border: 1px solid #C7D2FE;
       border-radius: 10px;
-      width: 44px;
-      height: 42px;
+      width: 46px;
+      height: 44px;
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
@@ -74,29 +74,20 @@
     .date-arrow-btn:active {
       background: #C7D2FE;
     }
-    
-    .date-input-container {
-      flex: 1;
-      position: relative;
-      background: #FFFFFF;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      overflow: hidden;
-    }
-    .date-input-container:focus-within {
-      border-color: var(--primary);
-    }
     #datetime {
-      width: 100%;
-      border: none;
-      padding: 8px 10px;
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
       font-size: 15px;
-      background: transparent;
-      text-align: center;
       font-weight: 600;
+      background: #FFFFFF;
+      color: var(--text-main);
       outline: none;
+      text-align: center;
+    }
+    #datetime:focus {
+      border-color: var(--primary);
     }
 
     /* Section & Form */
@@ -239,14 +230,12 @@
     <div id="register" class="tab-content active">
       <form id="healthForm">
         
-        <!-- 날짜 선택 -->
+        <!-- 날짜 선택 (사파리 순정 date input 복원) -->
         <div class="single-group">
           <label>📅 기록 날짜</label>
           <div class="date-control-wrapper">
             <button type="button" class="date-arrow-btn" onclick="moveDate(-1)" title="전날">◀</button>
-            <div class="date-input-container">
-              <input type="date" id="datetime" required onchange="onDateChange()">
-            </div>
+            <input type="date" id="datetime" required onchange="onDateChange()">
             <button type="button" class="date-arrow-btn" onclick="moveDate(1)" title="다음날">▶</button>
           </div>
         </div>
@@ -334,18 +323,14 @@
       return `${year}-${month}-${day}`;
     }
 
+    // 사파리/크롬 날짜 표준 정규화
     function normalizeDateStr(rawStr) {
       if (!rawStr) return getTodayString();
       let s = String(rawStr).trim();
-      
-      if (s.includes('T')) {
-        s = s.split('T')[0];
-      }
+      if (s.includes('T')) s = s.split('T')[0];
 
       let cleaned = s.replace(/[./]/g, '-');
-      if (cleaned.endsWith('-')) {
-        cleaned = cleaned.slice(0, -1);
-      }
+      if (cleaned.endsWith('-')) cleaned = cleaned.slice(0, -1);
       
       const parts = cleaned.split('-');
       if (parts.length === 3) {
@@ -354,7 +339,6 @@
         const d = parts[2].padStart(2, '0');
         return `${y}-${m}-${d}`;
       }
-      
       return cleaned.substring(0, 10);
     }
 
@@ -384,6 +368,7 @@
       preloadData();
     });
 
+    // ◀ ▶ 화살표 클릭 시 안전한 날짜 이동
     function moveDate(days) {
       const dateInput = document.getElementById('datetime');
       const currentVal = normalizeDateStr(dateInput.value);
@@ -396,8 +381,7 @@
       const month = String(currentDate.getUTCMonth() + 1).padStart(2, '0');
       const day = String(currentDate.getUTCDate()).padStart(2, '0');
       
-      const nextDateStr = `${year}-${month}-${day}`;
-      dateInput.value = nextDateStr;
+      dateInput.value = `${year}-${month}-${day}`;
       onDateChange(); 
     }
 
