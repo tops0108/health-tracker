@@ -75,7 +75,6 @@
       background: #C7D2FE;
     }
     
-    /* 사파리 포맷 버그 원천 차단을 위한 래퍼 */
     .date-input-container {
       flex: 1;
       position: relative;
@@ -240,7 +239,7 @@
     <div id="register" class="tab-content active">
       <form id="healthForm">
         
-        <!-- 날짜 선택 (사파리 날짜 포맷 버그 완벽 차단 구조) -->
+        <!-- 날짜 선택 -->
         <div class="single-group">
           <label>📅 기록 날짜</label>
           <div class="date-control-wrapper">
@@ -322,7 +321,7 @@
 
   <script>
     // ⚠️ 구글 앱스 스크립트 배포 URL 입력
-    const GAS_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwOJt3ruJyYzGd073C_lJJXLapfGgw_9TPJXmDzMW5Yz2ISEZBbIR3moOFDrdKIYAsbFg/exec";
 
     let calendarObj = null;
     let fetchedEventsData = [];
@@ -335,7 +334,6 @@
       return `${year}-${month}-${day}`;
     }
 
-    // 📌 사파리/크롬 공통 날짜 표준 추출기 (점, 슬래시, T 문자 등 어떤 형태든 YYYY-MM-DD로 복원)
     function normalizeDateStr(rawStr) {
       if (!rawStr) return getTodayString();
       let s = String(rawStr).trim();
@@ -344,9 +342,7 @@
         s = s.split('T')[0];
       }
 
-      // 점이나 슬래시를 하이픈으로 변경
       let cleaned = s.replace(/[./]/g, '-');
-      
       if (cleaned.endsWith('-')) {
         cleaned = cleaned.slice(0, -1);
       }
@@ -388,12 +384,10 @@
       preloadData();
     });
 
-    // ◀ ▶ 화살표 클릭 시 안전한 날짜 연산
     function moveDate(days) {
       const dateInput = document.getElementById('datetime');
       const currentVal = normalizeDateStr(dateInput.value);
       
-      // UTC 기준 파싱으로 시차 오류 원천 차단
       const parts = currentVal.split('-');
       let currentDate = new Date(Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])));
       currentDate.setUTCDate(currentDate.getUTCDate() + days);
