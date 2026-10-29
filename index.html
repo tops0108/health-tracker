@@ -1,3 +1,19 @@
+기록 작성 탭의 날짜 입력란 양옆에 **하루 전(◀) / 하루 후(▶)로 간편하게 이동할 수 있는 날짜 이동 화살표 버튼**을 추가했습니다.
+
+---
+
+### 🎨 디자인 및 기능 포인트
+
+1. **직관적인 인라인 배치**: 날짜 입력 필드 좌우에 화살표 버튼을 나란히 배치하여 스마트폰 터치 환경에서도 누르기 편하도록 디자인했습니다.
+2. **자동 데이터 연동**: 화살표를 누르는 순간 날짜가 바뀌면서 해당 날짜에 저장된 기록이 있다면 즉시 폼에 자동으로 불러와집니다.
+
+---
+
+### 📝 수정된 전체 `index.html` 소스 코드
+
+아래 코드를 복사해서 `index.html`에 덮어씌워 주시면 됩니다. (앱스 스크립트 코드는 이전 답변과 동일하므로 그대로 두시면 됩니다.)
+
+```html
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -49,11 +65,42 @@
     .tab-content { display: none; background: var(--card-bg); border-radius: 18px; padding: 16px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); }
     .tab-content.active { display: block; }
 
+    /* 날짜 선택 컨트롤러 레이아웃 */
+    .date-control-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .date-arrow-btn {
+      background: #EEF2FF;
+      color: var(--primary);
+      border: 1px solid #C7D2FE;
+      border-radius: 10px;
+      width: 44px;
+      height: 42px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .date-arrow-btn:active {
+      background: #C7D2FE;
+    }
+    #datetime {
+      flex: 1;
+      text-align: center;
+      font-weight: 600;
+    }
+
     /* Section & Form */
     .section-card { background: #F9FAFB; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
     .section-title { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 8px; }
 
-    /* 몸무게 카드 커스텀 디자인 */
+    /* 몸무게 카드 디자인 */
     .weight-card {
       background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%);
       border: 1px solid #C7D2FE;
@@ -84,7 +131,7 @@
     .single-group { margin-bottom: 12px; }
     .single-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
 
-    /* 하단 고정 저장 버튼 */
+    /* 하단 고정 버튼 */
     .bottom-bar {
       position: fixed;
       bottom: 0;
@@ -189,12 +236,17 @@
     <div id="register" class="tab-content active">
       <form id="healthForm">
         
+        <!-- 날짜 변경 화살표 버튼 추가 -->
         <div class="single-group">
           <label>📅 기록 날짜</label>
-          <input type="date" id="datetime" required onchange="onDateChange()">
+          <div class="date-control-wrapper">
+            <button type="button" class="date-arrow-btn" onclick="moveDate(-1)" title="전날">◀</button>
+            <input type="date" id="datetime" required onchange="onDateChange()">
+            <button type="button" class="date-arrow-btn" onclick="moveDate(1)" title="다음날">▶</button>
+          </div>
         </div>
 
-        <!-- ⚖️ 체온 위에 추가된 몸무게 카드 -->
+        <!-- 몸무게 카드 -->
         <div class="section-card weight-card">
           <div class="section-title" style="color: var(--primary);">⚖️ 오늘의 몸무게</div>
           <div class="weight-input-wrapper">
@@ -203,7 +255,7 @@
           </div>
         </div>
 
-        <!-- 🌡️ 체온 -->
+        <!-- 체온 -->
         <div class="section-card">
           <div class="section-title">🌡️ 체온 (℃)</div>
           <div class="grid-3">
@@ -246,7 +298,7 @@
           <textarea id="note" rows="3" placeholder="특이사항이나 컨디션을 적어주세요."></textarea>
         </div>
 
-        <!-- 하단 고정 버튼 -->
+        <!-- 하단 고정 저장 버튼 -->
         <div class="bottom-bar">
           <div class="bottom-bar-inner">
             <button type="submit" id="saveBtn" class="submit-btn">저    장</button>
@@ -264,7 +316,7 @@
 
   <script>
     // ⚠️ 구글 앱스 스크립트 배포 URL 입력
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxVzHZCuMCOmaHBLC71PzSCg1sE_0bEKzBs8rx3mKAM8bijlF3-6ptXXPbSDSmR08uUWA/exec";
+    const GAS_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
 
     let calendarObj = null;
     let fetchedEventsData = [];
@@ -307,6 +359,20 @@
 
       preloadData();
     });
+
+    // ◀ ▶ 화살표 클릭 시 하루씩 날짜 이동
+    function moveDate(days) {
+      const dateInput = document.getElementById('datetime');
+      let currentDate = new Date(dateInput.value || getTodayString());
+      currentDate.setDate(currentDate.getDate() + days);
+      
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const day = String(currentDate.getDate()).padStart(2, '0');
+      
+      dateInput.value = `${year}-${month}-${day}`;
+      onDateChange(); // 날짜 변경에 맞춰 데이터 바인딩 실행
+    }
 
     function clearFormExceptDate(targetDate) {
       document.getElementById('healthForm').reset();
@@ -502,3 +568,5 @@
   </script>
 </body>
 </html>
+
+```
